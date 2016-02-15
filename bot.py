@@ -33,7 +33,7 @@ TIMEOUT = 1200 # 20 mins
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
 start_time = 12
-stop_time = 18
+stop_time = 13
 
 
 def main():
