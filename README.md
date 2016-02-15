@@ -1,2 +1,2 @@
-# LunarCalendarBot-rambler-
-Telegram bot to send lunar calendar
+## LunarCalendarBot [rambler]
+Telegram bot to send everyday lunar calendar 
