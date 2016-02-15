@@ -7,34 +7,37 @@
 # 3 - no such user
 # 4 - user is already in database
 
+# importing modules
 import telegram, configparser, logging, os, sys, re
 from threading import Thread
-from time import sleep
+from time import sleep, localtime
 from bs4 import BeautifulSoup
 try:
     from urllib import urlopen
 except ImportError:
-    from urllib.request import urlopen                          # python 3.4.3 (raspbian)
+    from urllib.request import urlopen                          # python 2 (raspbian)
 try:
     from urllib.error import URLError
 except ImportError:
-    from urllib2 import URLError                                # python 2
+    from urllib2 import URLError                                # python 2 (raspbian)
 try:
     sys.path.append('.private'); from config import TOKEN       # importing secret TOKEN
 except ImportError:
     print("need TOKEN from .private/config.py")
     sys.exit(1)
+
+# variables
 user_db = "user_db"
 news = "last_news"
-TIMEOUT = 3600 # 1 hour
+TIMEOUT = 60*20 # 30 mins
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
+start_time = 12
+stop_time = 13
+
 
 def main():
-    logging.basicConfig(
-      level = logging.WARNING,
-      filename=log_file,
-      format='%(asctime)s:%(levelname)s - %(message)s')
+    logging.basicConfig(level = logging.WARNING,filename=log_file,format='%(asctime)s:%(levelname)s - %(message)s')
 
     sendMessage = lambda chat_id, msg: bot.sendMessage(chat_id, msg)
 
@@ -42,15 +45,13 @@ def main():
 
     def notificateUser():
         while True:
-            if getLastNews() == 0:
+            if start_time <= localtime()[3] <= stop_time and getLastNews() == 0:       # there are new message and time is between 12:00 and 13:00 am
                 with open(user_db,'r') as file:
                     for chat_id in file.read().splitlines():
-                        if chat_id.strip() != '':
-                            msg = open(news, 'r').read()
+                        if chat_id != '':
+                            msg = getCurrentNews()
                             sendMessage(chat_id, msg)
                             logging.warning('user with chat_id %s is notified' % chat_id)
-                        else:
-                            pass                                                           # don`t touch empty lines
             sleep(TIMEOUT)
         return 0
     
@@ -58,11 +59,10 @@ def main():
         try:
             soup = BeautifulSoup(urlopen(URL), "html.parser")
             # get last message with bs (some magic :-| )
-            new_message_date = soup.findAll("div", {"class":"b-content__date"})[0].getText()
-            new_message_date = "\n" + re.sub("\n        \xa0/\xa0"," /",new_message_date)
-            new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText()
+            new_message_date = soup.findAll("div", {"class":"b-content__date"})[0].getText().encode('utf-8').replace('        ','').replace('\n /',' /')
+            new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText().encode('utf-8')
             new_message = new_message_date + new_message_text
-            old_message = open(news, 'r').readlines()
+            old_message = getCurrentNews()
             if new_message not in old_message:
                 # got new message, so update the file
                 with open(news, 'w') as file:
@@ -71,8 +71,9 @@ def main():
                     return 0
             else:                                                               # file and variable are the same, so no news
                 return 1
-        except Exception as error:
+        except ImportError as error:
             logging.error('some problems with getLastNews(): %s' % error)
+            sleep(30)
             return 1
   
     def echo(bot, update_id):                                                       # Request updates after the last update_id
@@ -150,7 +151,8 @@ def main():
         except Exception:
             logging.error('delUser(): some problems with %s' % chat_id)
             return 1
-  
+
+# initialization
     for file in news, user_db:
         if not os.path.exists(file):
             open(file, 'w').close()
@@ -163,11 +165,12 @@ def main():
         update_id = bot.getUpdates()[0].update_id
     except IndexError:
         update_id = None
-    
+
+# body
     t = Thread(target=notificateUser)
     t.daemon = True
     t.start()
-  
+
     while True:
         try:
             update_id = echo(bot, update_id)
