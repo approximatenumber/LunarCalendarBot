@@ -29,7 +29,7 @@ except ImportError:
 # variables
 user_db = "user_db"
 news = "last_news"
-TIMEOUT = 1200 # 20 mins
+TIMEOUT = 60*20 # 20 mins
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
 start_time = 12
