@@ -29,7 +29,7 @@ except ImportError:
 # variables
 user_db = "user_db"
 news = "last_news"
-TIMEOUT = 60*20 # 20 mins
+TIMEOUT = 60 
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
 start_time = 12
@@ -45,13 +45,15 @@ def main():
 
     def notificateUser():
         while True:
-            if start_time <= localtime()[3] <= stop_time and getLastNews() == 0:       # there are new message and time is between 12:00 and 13:00 am
+            if getLastNews() == 0:
                 with open(user_db,'r') as file:
                     for chat_id in file.read().splitlines():
                         if chat_id != '':
                             msg = getCurrentNews()
                             sendMessage(chat_id, msg)
                             logging.warning('user with chat_id %s is notified' % chat_id)
+                # sleep ~24 hours, because there is no update at this time
+                sleep(60*24*TIMEOUT)
             sleep(TIMEOUT)
         return 0
     
@@ -63,7 +65,7 @@ def main():
             new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText().encode('utf-8')
             new_message = new_message_date + new_message_text
             old_message = getCurrentNews()
-            if new_message not in old_message:
+            if new_message_text not in old_message:
                 # got new message, so update the file
                 with open(news, 'w') as file:
                     file.write(new_message)
