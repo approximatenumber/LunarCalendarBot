@@ -29,7 +29,7 @@ except ImportError:
 # variables
 user_db = "user_db"
 news = "last_news"
-TIMEOUT = 10 # 20 mins
+TIMEOUT = 300
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
 
@@ -47,7 +47,7 @@ def main():
             if word in old_message:
                 overlap_count += 1
         overlap_percentage = (100 * overlap_count) / len(old_message.strip(' '))
-        # if poverlap percentage is more than 50%, there is new message on the site
+        # if overlap percentage is less than 50%, there is new message on the site
         if overlap_percentage < 50:
             return 0
         else:
@@ -58,20 +58,24 @@ def main():
             if getLastNews() == 0:
                 with open(user_db,'r') as file:
                     for chat_id in file.read().splitlines():
-                        msg = getCurrentNews()
+                        msg = getStoredNews()
                         sendMessage(chat_id, msg)
                         logging.warning('user with chat_id %s is notified' % chat_id)
             sleep(TIMEOUT)
         return 0
     
+    def downloadNews():
+        soup = BeautifulSoup(urlopen(URL), "html.parser")
+        # get last message with bs (some magic :-| )
+        new_message_date = soup.findAll("div", {"class":"b-content__date"})[0].getText().replace('        ', '').replace('\n\xa0/\xa0','/')
+        new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText()
+        new_message = new_message_date + new_message_text
+        return new_message
+            
     def getLastNews(): 
         try:
-            soup = BeautifulSoup(urlopen(URL), "html.parser")
-            # get last message with bs (some magic :-| )
-            new_message_date = soup.findAll("div", {"class":"b-content__date"})[0].getText().replace('        ', '').replace('\n\xa0/\xa0','/')
-            new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText()
-            new_message = new_message_date + new_message_text
-            old_message = getCurrentNews()
+            new_message = downloadNews()
+            old_message = getStoredNews()
             if findMessageOverlap(new_message, old_message) == 0:
                 # got new message, so update the file
                 with open(news, 'w') as file:
@@ -94,7 +98,7 @@ def main():
             if message == "/start":                                                 # Reply to the start message
                 if addUser(chat_id) == 0:
                     msg = "Вы подписаны на ежедневную рассылку лунного гороскопа от \
-                                \"Рамблер.Гороскопы\".  Это сегодняшний прогноз:" + getCurrentNews()
+                                \"Рамблер.Гороскопы\".  Это сегодняшний прогноз:" + getStoredNews()
                     sendMessage(chat_id, msg)
                 elif addUser(chat_id) == 4:
                     msg = "Вы уже подписаны на рассылку!"
@@ -162,12 +166,15 @@ def main():
             return 1
 
 # initialization
-    for file in news, user_db:
+    for file in news, user_db, log_file:
         if not os.path.exists(file):
             open(file, 'w').close()
             logging.warning('file %s created' % file)
-    open(log_file, 'w').close()
-    logging.warning('bot started...')
+    if not open(news).read() == 0:
+        with open(news,'w') as file:
+            file.write(downloadNews())
+        logging.warning('news is downloaded')
+    logging.warning('bot started')
 
     bot = telegram.Bot(TOKEN)
     try:
