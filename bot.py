@@ -29,11 +29,9 @@ except ImportError:
 # variables
 user_db = "user_db"
 news = "last_news"
-TIMEOUT = 60 
+TIMEOUT = 10 # 20 mins
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
-start_time = 12
-stop_time = 13
 
 
 def main():
@@ -42,18 +40,27 @@ def main():
     sendMessage = lambda chat_id, msg: bot.sendMessage(chat_id, msg)
 
     getCurrentNews = lambda: open(news, 'r').read()
-
+    
+    def findMessageOverlap(new_message, old_message):
+        overlap_count = 0
+        for word in new_message.strip(' '):
+            if word in old_message:
+                overlap_count += 1
+        overlap_percentage = (100 * overlap_count) / len(old_message.strip(' '))
+        # if poverlap percentage is more than 50%, there is new message on the site
+        if overlap_percentage < 50:
+            return 0
+        else:
+            return 1
+    
     def notificateUser():
         while True:
             if getLastNews() == 0:
                 with open(user_db,'r') as file:
                     for chat_id in file.read().splitlines():
-                        if chat_id != '':
-                            msg = getCurrentNews()
-                            sendMessage(chat_id, msg)
-                            logging.warning('user with chat_id %s is notified' % chat_id)
-                # sleep ~24 hours, because there is no update at this time
-                sleep(60*24*TIMEOUT)
+                        msg = getCurrentNews()
+                        sendMessage(chat_id, msg)
+                        logging.warning('user with chat_id %s is notified' % chat_id)
             sleep(TIMEOUT)
         return 0
     
@@ -61,11 +68,11 @@ def main():
         try:
             soup = BeautifulSoup(urlopen(URL), "html.parser")
             # get last message with bs (some magic :-| )
-            new_message_date = soup.findAll("div", {"class":"b-content__date"})[0].getText().encode('utf-8').replace('        ','').replace('\n /',' /')
-            new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText().encode('utf-8')
+            new_message_date = soup.findAll("div", {"class":"b-content__date"})[0].getText().replace('        ', '').replace('\n\xa0/\xa0','/')
+            new_message_text = soup.findAll("div", {"class":"b-content__text"})[0].getText()
             new_message = new_message_date + new_message_text
             old_message = getCurrentNews()
-            if new_message_text not in old_message:
+            if findMessageOverlap(new_message, old_message) == 0:
                 # got new message, so update the file
                 with open(news, 'w') as file:
                     file.write(new_message)
@@ -73,7 +80,7 @@ def main():
                     return 0
             else:                                                               # file and variable are the same, so no news
                 return 1
-        except ImportError as error:
+        except Exception as error:
             logging.error('some problems with getLastNews(): %s' % error)
             sleep(30)
             return 1
