@@ -8,20 +8,19 @@
 # 4 - user is already in database
 
 # importing modules
-import telegram, configparser, logging, os, sys, re
+import telegram
+import logging
+import os
+import sys
+import re
 from threading import Thread
-from time import sleep, localtime
+from time import sleep
 from bs4 import BeautifulSoup
+from urllib.request import urlopen
+from urllib.error import URLError
 try:
-    from urllib import urlopen
-except ImportError:
-    from urllib.request import urlopen                          # python 2 (raspbian)
-try:
-    from urllib.error import URLError
-except ImportError:
-    from urllib2 import URLError                                # python 2 (raspbian)
-try:
-    sys.path.append('.private'); from config import TOKEN       # importing secret TOKEN
+    sys.path.append('.private')
+    from config import TOKEN       # importing secret TOKEN
 except ImportError:
     print("need TOKEN from .private/config.py")
     sys.exit(1)
@@ -39,28 +38,35 @@ def main():
 
     sendMessage = lambda chat_id, msg: bot.sendMessage(chat_id, msg)
 
-    getCurrentNews = lambda: open(news, 'r').read()
+    getStoredNews = lambda: open(news, 'r').read()
     
-    def findMessageOverlap(new_message, old_message):
+    def getMessageOverlap(new_message, old_message):
         overlap_count = 0
-        for word in new_message.strip(' '):
+        new_message_words = new_message.split(' ')
+        old_message_words = old_message.split(' ')
+        for word in new_message_words:
             if word in old_message:
                 overlap_count += 1
-        overlap_percentage = (100 * overlap_count) / len(old_message.strip(' '))
-        # if overlap percentage is less than 50%, there is new message on the site
+        overlap_percentage = (100 * overlap_count) / len(new_message_words)
+        print("old_len %s, new_len %s, overlap_count %s, overlap_percentage %s" % (len(old_message_words), len(new_message_words), overlap_count, overlap_percentage))
+        # if overlap percentage is less than 50%, then there is new message on the site
         if overlap_percentage < 50:
-            return 0
+            return True
         else:
-            return 1
+            return False
     
     def notificateUser():
         while True:
             if getLastNews() == 0:
                 with open(user_db,'r') as file:
                     for chat_id in file.read().splitlines():
-                        msg = getStoredNews()
-                        sendMessage(chat_id, msg)
-                        logging.warning('user with chat_id %s is notified' % chat_id)
+                        try:
+                            msg = getStoredNews()
+                            sendMessage(chat_id, msg)
+                            logging.warning('user with chat_id %s is notified' % chat_id)
+                        except Exception as e:
+                            logging.error('error for chat_id %s: %s' % (chat_id, e))
+                            sleep(30)
             sleep(TIMEOUT)
         return 0
     
@@ -76,7 +82,7 @@ def main():
         try:
             new_message = downloadNews()
             old_message = getStoredNews()
-            if findMessageOverlap(new_message, old_message) == 0:
+            if getMessageOverlap(new_message, old_message) == True:
                 # got new message, so update the file
                 with open(news, 'w') as file:
                     file.write(new_message)
@@ -170,7 +176,8 @@ def main():
         if not os.path.exists(file):
             open(file, 'w').close()
             logging.warning('file %s created' % file)
-    if not open(news).read() == 0:
+    # if news is empty then let`s download it
+    if open(news).read() == 0:
         with open(news,'w') as file:
             file.write(downloadNews())
         logging.warning('news is downloaded')
