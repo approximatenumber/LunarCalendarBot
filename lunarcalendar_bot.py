@@ -28,6 +28,7 @@ except ImportError:
 # variables
 user_db = "user_db"
 news = "last_news"
+old_news = "last_news.old"
 TIMEOUT = 300
 URL = "http://horoscopes.rambler.ru/moon/"
 log_file = "bot.log"
@@ -39,6 +40,7 @@ def main():
     sendMessage = lambda chat_id, msg: bot.sendMessage(chat_id, msg)
 
     getStoredNews = lambda: open(news, 'r').read()
+    getOldNews = lambda: open(old_news, 'r').read()
     
     def getMessageOverlap(new_message, old_message):
         overlap_count = 0
@@ -81,11 +83,14 @@ def main():
     def getLastNews(): 
         try:
             new_message = downloadNews()
-            old_message = getStoredNews()
-            if getMessageOverlap(new_message, old_message) == True:
+            stored_message = getStoredNews()
+            old_message = getOldNews()
+            if getMessageOverlap(new_message, stored_message) == True and getMessageOverlap(new_message, old_message) == True:
                 # got new message, so update the file
                 with open(news, 'w') as file:
                     file.write(new_message)
+                with open(old_news, 'w') as file:
+                    file.write(stored_message)
                     logging.warning('got new message, news updated')
                     return 0
             else:                                                               # file and variable are the same, so no news
@@ -172,7 +177,7 @@ def main():
             return 1
 
 # initialization
-    for file in news, user_db, log_file:
+    for file in news, old_news, user_db, log_file:
         if not os.path.exists(file):
             open(file, 'w').close()
             logging.warning('file %s created' % file)
