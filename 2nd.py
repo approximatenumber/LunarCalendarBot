@@ -33,8 +33,8 @@ def main(**args):
     def start(bot, update):
         message = update.message
         chat_id = message.chat.id
-        if not db.contains(chats_q.chat_id == chat_id):
-            db.insert({'chat_id': chat_id})
+        if not chat_db.contains(chats_q.chat_id == chat_id):
+            chat_db.insert({'chat_id': chat_id})
             text = 'Вы подписаны на рассылку лунного гороскопа.'
             bot.sendMessage(chat_id=chat_id, text=text)
             logging.warning('%s added' % chat_id)
@@ -42,8 +42,8 @@ def main(**args):
     def stop(bot, update):
         message = update.message
         chat_id = message.chat.id
-        if db.contains(chats_q.chat_id == chat_id) is True:
-            db.remove(chats_q.chat_id == chat_id)
+        if chat_db.contains(chats_q.chat_id == chat_id) is True:
+            chat_db.remove(chats_q.chat_id == chat_id)
             text = 'Вы отписались от рассылки лунного гороскопа.'
             bot.sendMessage(chat_id=chat_id, text=text)
             logging.warning('%s removed' % chat_id)
@@ -78,7 +78,7 @@ def main(**args):
         if oracle_upd != oracle_read():
             logging.warning('oracle updated')
             oracle_write(oracle_upd)
-            for chat_ids in db.all():
+            for chat_ids in chat_db.all():
                     for chat_id in chat_ids:
                         Bot(token=TOKEN).sendMessage(chat_id=chat_ids[chat_id], text=oracle_upd)
                         logging.warning('%s notified' % chat_id)
