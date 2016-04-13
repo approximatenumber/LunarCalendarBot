@@ -37,6 +37,7 @@ def main(**args):
             chat_db.insert({'chat_id': chat_id})
             text = 'Вы подписаны на рассылку лунного гороскопа.'
             bot.sendMessage(chat_id=chat_id, text=text)
+            bot.sendMessage(chat_id=chat_id,text=oracle_read())
             logging.warning('%s added' % chat_id)
 
     def stop(bot, update):
