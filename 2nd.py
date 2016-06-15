@@ -59,6 +59,11 @@ def main(**args):
     def oracle_write(oracle):
         with open('oracle', 'w') as file:
             file.write(oracle)
+
+    def error(bot, update, error):
+        logging.warning('Update "%s" caused error "%s"' % (update, error))
+        sleep(10)
+    
     try:
         chat_db = TinyDB(CHATS)
     except ValueError:
@@ -70,19 +75,27 @@ def main(**args):
     dp = updater.dispatcher
     dp.addTelegramCommandHandler("start", start)
     dp.addTelegramCommandHandler("stop", stop)
-#    dp.addErrorHandler(error)
+    dp.addErrorHandler(error)
     update_queue = updater.start_polling(poll_interval=1, timeout=5)
 
     while True:
-        soup = BeautifulSoup(urlopen(URL), 'html.parser')
-        oracle_upd = soup.findAll('div', {'class': 'informer_active'})[0].getText().replace('\r','')
-        if oracle_upd != oracle_read():
-            logging.warning('oracle updated')
-            oracle_write(oracle_upd)
-            for chat_ids in chat_db.all():
-                    for chat_id in chat_ids:
-                        Bot(token=TOKEN).sendMessage(chat_id=chat_ids[chat_id], text=oracle_upd)
-                        logging.warning('%s notified' % chat_id)
+        try:
+            soup = BeautifulSoup(urlopen(URL), 'html.parser')
+            oracle_upd = soup.findAll('div', {'class': 'informer_active'})[0].getText().replace('\r','')
+            if oracle_upd != oracle_read():
+                logging.warning('oracle updated')
+                oracle_write(oracle_upd)
+                for chat_ids in chat_db.all():
+                        for chat_id in chat_ids:
+                            try:
+                                Bot(token=TOKEN).sendMessage(chat_id=chat_ids[chat_id], text=oracle_upd)
+                                logging.warning('%s notified' % chat_id)
+                            except TelegramError as err:
+                                if err.message == "Unauthorized":
+                                    chat_db.remove(chats_q.chat_id == chat_id)
+                                    logging.warning('%s blocked us, so removed' % chat_id)
+        except Exception as err:
+            logging.error('Error occured: %s' % err)
         sleep(TIMEOUT)
 
 
