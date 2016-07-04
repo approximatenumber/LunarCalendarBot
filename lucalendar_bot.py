@@ -42,9 +42,13 @@ class Chats():
                 self.chat_db.dump()
 
     def contains(self, chat_id):
+        contain = 0
         for num in range(self.chat_db.llen('chats')):
             if chat_id == self.chat_db.lget('chats', num):
-                return True
+                contain += 1
+        if contain > 0:
+            return True
+        else:
             return False
 
     def getall(self):
